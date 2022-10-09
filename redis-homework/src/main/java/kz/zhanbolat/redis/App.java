@@ -1,91 +1,45 @@
 package kz.zhanbolat.redis;
 
-import org.apache.commons.lang3.time.StopWatch;
-import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.JedisCluster;
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.commons.lang3.StringUtils;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class App {
-    public static void main( String[] args ) {
-        Set<HostAndPort> jedisClusterNodes = new HashSet<>();
-        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7000));
-        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7001));
-        jedisClusterNodes.add(new HostAndPort("127.0.0.1", 7002));
-        JedisCluster jedis = new JedisCluster(jedisClusterNodes);
+    public static void main( String[] args ) throws URISyntaxException, IOException {
+        JedisPool jedisPool = new JedisPool("127.0.0.1", 6379);
 
-        try {
-            Path path = Paths.get(App.class.getClassLoader().getResource("example.json").toURI());
-            BufferedReader reader = Files.newBufferedReader(path);
-            List<String> strings = reader.lines().collect(Collectors.toList());
-            reader.close();
-            String data = String.join("\n", strings);
+        Path path = Paths.get(App.class.getClassLoader().getResource("example.json").toURI());
+        byte[] data = Files.readAllBytes(path);
 
-            StopWatch stopWatch = new StopWatch();
-
-            stopWatch.start();
-            jedis.set("strdata", data);
-            stopWatch.stop();
-            System.out.println("String written in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.get("strdata");
-            stopWatch.stop();
-            System.out.println("String read in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.hset("hsetdata", "datakey", data);
-            stopWatch.stop();
-            System.out.println("Hash written in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.hget("hsetdata", "datakey");
-            stopWatch.stop();
-            System.out.println("Hash read in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.zadd("zsetdata", 1, data);
-            stopWatch.stop();
-            System.out.println("Sorted set written in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.zrange("zsetdata", 0, 2);
-            stopWatch.stop();
-            System.out.println("Sorted set read in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.lpush("listdata", data);
-            stopWatch.stop();
-            System.out.println("List written in: " + stopWatch.getTime());
-
-            stopWatch.reset();
-            stopWatch.start();
-            jedis.lpop("listdata");
-            stopWatch.stop();
-            System.out.println("List read in: " + stopWatch.getTime());
-        } catch (URISyntaxException e) {
-            System.out.println("Cannot find json file");
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            System.out.println("Cannot read from file");
-            throw new RuntimeException(e);
+        try (Jedis resource = jedisPool.getResource()) {
+            for (int i = 1; i <= 10_000; i++) {
+                String key = "data:" + i;
+                System.out.println("insert " + key);
+                resource.set(key.getBytes(), data);
+                String usedDataKey = "data:" + RandomUtils.nextInt(1, i);
+                System.out.println("used " + usedDataKey);
+                resource.get(usedDataKey);
+            }
+            int count = 0;
+            for (int i = 1; i <= 10_000; i++) {
+                String key = "data:" + i;
+                if (StringUtils.isEmpty(resource.get(key))) {
+                    System.out.println(key + " was deleted");
+                } else {
+                    count++;
+                    System.out.println(key + " is keep");
+                }
+            }
+            System.out.println("Out of 10,000, a " + ((count / 10_000d) * 100d) + "% is keep");
         } finally {
-            jedis.close();
+            jedisPool.close();
         }
     }
 }

@@ -2,20 +2,11 @@
 
 ## MOST RECENT RESULT 
 
-All of provided time is in milliseconds:
+Out of 10,000, a 1.68% is keep
 
-* String written in: 275
-* String read in: 174
-* Hash written in: 308
-* Hash read in: 122
-* Sorted set written in: 268
-* Sorted set read in: 143
-* List written in: 249
-* List read in: 328
+## REDIS MEMORY CONFIG
 
-## REDIS CLUSTER CONFIG
-
-cluster-enabled yes <br>
-cluster-config-file nodes.conf <br>
-cluster-node-timeout 5000 <br>
-appendonly yes
+maxmemory 5mb <br>
+maxmemoey-policy allkeys-lru <br>
+maxmemory-samples 10 <br>
+mexmemory-eviction-tenacity 10
